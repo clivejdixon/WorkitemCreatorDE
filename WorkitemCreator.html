@@ -1,1 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EMEA PS — WorkItem Creator v2.0</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --label-col  : 220px;
+      --radius     : 8px;
+      --border     : #d0d7de;
+      --accent     : #0061A8;
+      --accent-hov : #004e8c;
+      --accent-lite: #e8f2ff;
+      --bg         : #f6f8fa;
+      --surface    : #ffffff;
+      --text       : #1a1a2e;
+      --muted      : #6e7781;
+      --success    : #1a7f37;
+      --error      : #cf222e;
+    }
+
+    body {
+      font-family : system-ui, "Segoe UI", Arial, sans-serif;
+      background  : var(--bg);
+      color       : var(--text);
+      padding     : 24px 16px;
+      min-height  : 100vh;
+    }
+
+    .container { max-width: 760px; margin: 0 auto; }
+
+    h1 {
+      font-size     : 1.5rem;
+      font-weight   : 700;
+      margin-bottom : 24px;
+      padding-bottom: 12px;
+      border-bottom : 2px solid var(--accent);
+      color         : var(--accent);
+    }
+
+    .card {
+      background   : var(--surface);
+      border       : 1px solid var(--border);
+      border-radius: var(--radius);
+      padding      : 24px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Work Type Search + Picker ───────────────────────────────── */
+    .wt-section { margin-bottom: 20px; }
+
+    .wt-row {
+      display              : grid;
+      grid-template-columns: var(--label-col) 1fr;
+      gap                  : 0 16px;
+      align-items          : start;
+    }
+
+    .wt-row > label {
+      font-weight : 600;
+      font-size   : 0.9rem;
+      padding-top : 10px;
+    }
+
+    .wt-picker { position: relative; }
+
+    .wt-search {
+      width        : 100%;
+      padding      : 9px 10px 9px 34px;
+      border       : 1px solid var(--border);
+      border-radius: 6px;
+      font-size    : 0.9rem;
+      background   : var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236e7781' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 10px center;
+      transition   : border-color .15s, box-shadow .15s;
+    }
+    .wt-search:focus {
+      outline     : none;
+      border-color: var(--accent);
+      box-shadow  : 0 0 0 3px rgba(0,97,168,.15);
+    }
+
+    .wt-dropdown {
+      display      : none;
+      position     : absolute;
+      top          : calc(100% + 4px);
+      left         : 0;
+      right        : 0;
+      background   : var(--surface);
+      border       : 1px solid var(--border);
+      border-radius: 6px;
+      max-height   : 220px;
+      overflow-y   : auto;
+      z-index      : 100;
+      box-shadow   : 0 4px 16px rgba(0,0,0,.12);
+    }
+    .wt-dropdown.open { display: block; }
+
+    .wt-option {
+      padding    : 9px 12px;
+      cursor     : pointer;
+      font-size  : 0.9rem;
+      transition : background .1s;
+    }
+    .wt-option:hover        { background: var(--accent-lite); }
+    .wt-option.selected     { background: var(--accent-lite); font-weight: 600; color: var(--accent); }
+    .wt-option.no-match     { color: var(--muted); cursor: default; font-style: italic; }
+    .wt-option mark         { background: #fff3a3; border-radius: 2px; padding: 0 1px; font-weight: 600; }
+
+    .wt-selected-badge {
+      display      : none;
+      margin-top   : 6px;
+      padding      : 5px 10px;
+      background   : var(--accent-lite);
+      border       : 1px solid var(--accent);
+      border-radius: 4px;
+      font-size    : 0.82rem;
+      font-weight  : 600;
+      color        : var(--accent);
+    }
+    .wt-selected-badge.visible { display: inline-block; }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    .section-divider {
+      border    : none;
+      border-top: 1px solid var(--border);
+      margin    : 0 0 20px 0;
+    }
+
+    /* ── Status banner ───────────────────────────────────────────── */
+    #statusBanner {
+      display      : none;
+      padding      : 12px 16px;
+      border-radius: var(--radius);
+      font-size    : 0.875rem;
+      margin-bottom: 16px;
+      border       : 1px solid transparent;
+    }
+    #statusBanner.success { background:#d4f5db; border-color:var(--success); color:var(--success); }
+    #statusBanner.error   { background:#ffdcdc; border-color:var(--error);   color:var(--error);   }
+    #statusBanner.info    { background:#daeeff; border-color:var(--accent);  color:var(--accent);  }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      padding      : 10px 22px;
+      border       : none;
+      border-radius: var(--radius);
+      font-size    : 0.95rem;
+      font-weight  : 600;
+      cursor       : pointer;
+      transition   : background .2s, transform .1s;
+    }
+    .btn-primary          { background: var(--accent);     color: #fff; }
+    .btn-primary:hover    { background: var(--accent-hov); }
+    .btn-primary:active   { transform: scale(.98); }
+    .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      display       : inline-block;
+      width         : 18px;
+      height        : 18px;
+      border        : 3px solid rgba(0,97,168,.25);
+      border-top    : 3px solid var(--accent);
+      border-radius : 50%;
+      animation     : spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right  : 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Auth overlay ────────────────────────────────────────────── */
+    #authOverlay {
+      display        : flex;
+      flex-direction : column;
+      align-items    : center;
+      justify-content: center;
+      padding        : 40px;
+      gap            : 16px;
+      text-align     : center;
+      color          : var(--muted);
+    }
+
+    /* ── Debug log ───────────────────────────────────────────────── */
+    details.debug-panel         { margin-top: 24px; }
+    details.debug-panel summary { cursor:pointer; font-weight:600; color:var(--muted); user-select:none; padding:4px 0; }
+    #debugLog {
+      margin-top   : 8px;
+      background   : #1e1e2e;
+      color        : #cdd6f4;
+      border-radius: 6px;
+      padding      : 12px;
+      font-family  : "Cascadia Code", "Fira Code", monospace;
+      font-size    : 0.76rem;
+      max-height   : 320px;
+      overflow-y   : auto;
+      white-space  : pre-wrap;
+      word-break   : break-all;
+    }
+    .log-info  { color: #89dceb; }
+    .log-ok    { color: #a6e3a1; }
+    .log-warn  { color: #f9e2af; }
+    .log-error { color: #f38ba8; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>EMEA PS &#8212; WorkItem Creator <span style="font-size:0.6em; color:var(--muted);">v2.0</span></h1>
+
+  <div id="statusBanner" role="alert"></div>
+
+  <!-- ── Main card (shown after auth) ───────────────────────────── -->
+  <div class="card" id="mainCard" style="display:none">
+
+    <!-- Work Type search + picker -->
+    <div class="wt-section">
+      <div class="wt-row">
+        <label for="wtSearch">Select Work Type:</label>
+        <div class="wt-picker" id="wtPicker">
+          <input type="text"
+                 id="wtSearch"
+                 class="wt-search"
+                 placeholder="Type to filter work types..."
+                 autocomplete="off" />
+          <div class="wt-dropdown" id="wtDropdown" role="listbox"></div>
+          <span class="wt-selected-badge" id="wtBadge"></span>
+        </div>
+      </div>
+      <!-- Hidden field carries the selected worktype id for form submission -->
+      <input type="hidden" id="selectedWorktypeId" value="" />
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- Dynamic attribute form -->
+    <form id="workItemForm" novalidate>
+      <div id="attributesContainer"></div>
+      <div id="submitRow" style="margin-top:16px; display:none">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button type="button" id="createBtn1" class="btn btn-primary" data-count="1">
+            Create x1 Workitem
+          </button>
+          <button type="button" id="createBtn3" class="btn btn-primary" data-count="3">
+            Create x3 Workitems
+          </button>
+          <button type="button" id="createBtn5" class="btn btn-primary" data-count="5">
+            Create x5 Workitems
+          </button>
+          <button type="button" id="createBtn10" class="btn btn-primary" data-count="10">
+            Create x10 Workitems
+          </button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+
+  <!-- ── Auth overlay (shown before auth) ───────────────────────── -->
+  <div class="card" id="authCard">
+    <div id="authOverlay">
+      <div class="spinner"></div>
+      <p id="authMessage">Checking authentication&#8230;</p>
+    </div>
+  </div>
+
+  <!-- ── Debug log ──────────────────────────────────────────────── -->
+  <details class="debug-panel" open>
+    <summary>&#x1F6E0; Debug Log</summary>
+    <div id="debugLog"></div>
+  </details>
+
+</div><!-- /.container -->
+
+<script>
+  /* ══════════════════════════════════════════════════════════════════
+     CONFIG
+  ══════════════════════════════════════════════════════════════════ */
+  const CLIENT_ID    = '9ff42c92-5732-45f9-845c-921ed8fb7456';
+  const REGION       = 'mypurecloud.de';
+  const API_BASE     = 'https://api.' + REGION;
+  const AUTH_BASE    = 'https://login.' + REGION;
+  const REDIRECT_URI = window.location.origin + window.location.pathname;
+
+  let accessToken = '';
+  let allWorkTypes = [];          // full list, used for client-side filtering
+  let selectedWorktypeId = '';    // currently chosen worktype id
+
+  /* ══════════════════════════════════════════════════════════════════
+     DEBUG LOGGER
+  ══════════════════════════════════════════════════════════════════ */
+  const logEl = document.getElementById('debugLog');
+
+  function log(msg, level) {
+    level = level || 'info';
+    const ts   = new Date().toISOString().slice(11, 23);
+    const line = document.createElement('div');
+    line.className   = 'log-' + level;
+    line.textContent = '[' + ts + '] ' + msg;
+    logEl.appendChild(line);
+    logEl.scrollTop  = logEl.scrollHeight;
+    if (level === 'error') console.error(msg);
+    else if (level === 'warn') console.warn(msg);
+    else console.log(msg);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     STATUS BANNER
+  ══════════════════════════════════════════════════════════════════ */
+  function showStatus(msg, type) {
+    type = type || 'info';
+    const el         = document.getElementById('statusBanner');
+    el.textContent   = msg;
+    el.className     = type;
+    el.style.display = 'block';
+    if (type === 'success') setTimeout(function() { el.style.display = 'none'; }, 6000);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     PKCE HELPERS
+  ══════════════════════════════════════════════════════════════════ */
+  function generateCodeVerifier() {
+    const arr = new Uint8Array(64);
+    crypto.getRandomValues(arr);
+    return btoa(String.fromCharCode.apply(null, arr))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  async function generateCodeChallenge(verifier) {
+    const data   = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  async function redirectToGenesysOAuth() {
+    const verifier  = generateCodeVerifier();
+    const challenge = await generateCodeChallenge(verifier);
+    sessionStorage.setItem('pkce_verifier', verifier);
+    const params = new URLSearchParams({
+      response_type        : 'code',
+      client_id            : CLIENT_ID,
+      redirect_uri         : REDIRECT_URI,
+      code_challenge       : challenge,
+      code_challenge_method: 'S256',
+    });
+    log('Redirecting to Genesys PKCE auth...', 'info');
+    window.location.href = AUTH_BASE + '/oauth/authorize?' + params.toString();
+  }
+
+  async function exchangeCodeForToken(code) {
+    const verifier = sessionStorage.getItem('pkce_verifier');
+    if (!verifier) throw new Error('PKCE verifier missing from sessionStorage.');
+    log('Exchanging authorisation code for access token...', 'info');
+    const response = await fetch(AUTH_BASE + '/oauth/token', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body   : new URLSearchParams({
+        grant_type   : 'authorization_code',
+        client_id    : CLIENT_ID,
+        code         : code,
+        redirect_uri : REDIRECT_URI,
+        code_verifier: verifier,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      log('Token exchange failed (' + response.status + '): ' + JSON.stringify(data), 'error');
+      throw new Error(data.error_description || 'Token exchange failed');
+    }
+    sessionStorage.removeItem('pkce_verifier');
+    log('Access token obtained.', 'ok');
+    return data.access_token;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     API FETCH WRAPPER
+  ══════════════════════════════════════════════════════════════════ */
+  async function apiFetch(path, options) {
+    options = options || {};
+    const url = path.startsWith('http') ? path : API_BASE + path;
+    log('--> ' + (options.method || 'GET') + ' ' + url, 'info');
+    const response = await fetch(url, Object.assign({}, options, {
+      headers: Object.assign({
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept'       : 'application/json',
+        'Content-Type' : 'application/json',
+      }, options.headers || {}),
+    }));
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { data = text; }
+    if (!response.ok) {
+      log('<-- ' + response.status + ' ' + response.statusText + ': ' + JSON.stringify(data), 'error');
+      throw new Error('API ' + response.status + ': ' + response.statusText);
+    }
+    log('<-- ' + response.status + ' OK', 'ok');
+    return data;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     DATA FUNCTIONS
+
+     Chain on work type selection:
+       1. fetchWorkTypes()        — list all worktypes (no filter, client-side search)
+       2. fetchWorktypeById(id)   — full worktype detail → gets schema.id
+       3. fetchSchema(schemaId)   — schema → jsonSchema.properties
+       4. createWorkItem(...)     — POST new workitem
+  ══════════════════════════════════════════════════════════════════ */
+
+  async function fetchWorkTypes() {
+    log('Fetching all work types...', 'info');
+    const data = await apiFetch('/api/v2/taskmanagement/worktypes/query', {
+      method: 'POST',
+      body  : JSON.stringify({
+        pageSize  : 100,
+        attributes: ['id', 'name'],
+      }),
+    });
+    const entities = data.entities || [];
+    // Sort alphabetically for easier scanning
+    entities.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    log('Got ' + entities.length + ' work type(s).', entities.length ? 'ok' : 'warn');
+    return entities;
+  }
+
+  async function fetchWorktypeById(worktypeId) {
+    log('Fetching full worktype id=' + worktypeId + '...', 'info');
+    const data = await apiFetch('/api/v2/taskmanagement/worktypes/' + worktypeId);
+    if (!data.schema || !data.schema.id) {
+      log('Worktype "' + data.name + '" has no schema.', 'warn');
+    } else {
+      log('Worktype "' + data.name + '" schema.id = ' + data.schema.id, 'ok');
+    }
+    return data;
+  }
+
+  async function fetchSchema(schemaId) {
+    log('Fetching schema id=' + schemaId + '...', 'info');
+    const data = await apiFetch('/api/v2/taskmanagement/workitems/schemas/' + schemaId);
+    log('Schema raw: ' + JSON.stringify(data), 'info');
+    const props = (data.jsonSchema && data.jsonSchema.properties)
+                ? data.jsonSchema.properties
+                : (data.properties || null);
+    if (!props) {
+      log('WARNING: no .properties in schema response.', 'warn');
+    } else {
+      log('Schema properties: ' + Object.keys(props).join(', '), 'ok');
+    }
+    return props;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     DATE FORMATTING HELPERS
+
+     Genesys Cloud expects:
+       _date fields     → "YYYY-MM-DD"          (ISO 8601 date)
+       _datetime fields → "YYYY-MM-DDTHH:MM:SSZ" (ISO 8601 datetime UTC)
+
+     The browser date input returns  "YYYY-MM-DD"        (already correct)
+     The browser datetime-local returns "YYYY-MM-DDTHH:MM" (needs seconds+Z)
+  ══════════════════════════════════════════════════════════════════ */
+
+  function formatDateValue(val) {
+    // input[type=date] gives "YYYY-MM-DD" — already correct for Genesys
+    // Guard against any locale-variant (DD/MM/YYYY) just in case
+    if (!val) return val;
+    // If already ISO format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    // Try to parse DD/MM/YYYY fallback
+    var parts = val.split('/');
+    if (parts.length === 3) return parts[2] + '-' + parts[1] + '-' + parts[0];
+    return val;
+  }
+
+  function formatDateTimeValue(val) {
+    // input[type=datetime-local] gives "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+    // Genesys needs full ISO with seconds and Z suffix
+    if (!val) return val;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) return val + ':00Z';
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(val)) return val + 'Z';
+    return val;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     CREATE WORK ITEM
+  ══════════════════════════════════════════════════════════════════ */
+  async function createWorkItem(worktypeId, formAttributes) {
+    var customFields = {};
+    Object.keys(formAttributes).forEach(function(key) {
+      var value = formAttributes[key];
+      if (key === 'name' || value === '') return;
+
+      if (key.endsWith('_checkbox')) {
+        customFields[key] = (value === 'on' || value === true);
+      } else if (key.endsWith('_date')) {
+        customFields[key] = formatDateValue(value);
+      } else if (key.endsWith('_datetime')) {
+        customFields[key] = formatDateTimeValue(value);
+      } else if (key.endsWith('_integer')) {
+        var intVal = parseInt(value, 10);
+        if (!isNaN(intVal)) {
+          customFields[key] = intVal;
+        } else {
+          log('Skipping invalid integer "' + key + '": ' + value, 'warn');
+        }
+      } else if (key.endsWith('_number')) {
+        var numVal = parseFloat(value);
+        if (!isNaN(numVal)) {
+          customFields[key] = numVal;
+        } else {
+          log('Skipping invalid number "' + key + '": ' + value, 'warn');
+        }
+      } else {
+        customFields[key] = value;
+      }
+    });
+
+    var payload = {
+      typeId      : worktypeId,
+      name        : formAttributes.name,
+      customFields: customFields,
+    };
+
+    log('Creating work item: ' + JSON.stringify(payload), 'info');
+    return await apiFetch('/api/v2/taskmanagement/workitems', {
+      method: 'POST',
+      body  : JSON.stringify(payload),
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     WORK TYPE SEARCH PICKER
+  ══════════════════════════════════════════════════════════════════ */
+  function initWorkTypePicker(workTypes) {
+    allWorkTypes = workTypes;
+
+    const searchEl   = document.getElementById('wtSearch');
+    const dropdownEl = document.getElementById('wtDropdown');
+    const badgeEl    = document.getElementById('wtBadge');
+    const hiddenEl   = document.getElementById('selectedWorktypeId');
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    }
+
+    function highlight(name, query) {
+      if (!query) return escapeHtml(name);
+      var idx = name.toLowerCase().indexOf(query.toLowerCase());
+      if (idx === -1) return escapeHtml(name);
+      return escapeHtml(name.slice(0, idx))
+           + '<mark>' + escapeHtml(name.slice(idx, idx + query.length)) + '</mark>'
+           + escapeHtml(name.slice(idx + query.length));
+    }
+
+    function renderDropdown(query) {
+      var filtered = query
+        ? allWorkTypes.filter(function(wt) {
+            return wt.name.toLowerCase().indexOf(query.toLowerCase()) !== -1;
+          })
+        : allWorkTypes;
+
+      dropdownEl.innerHTML = '';
+
+      if (filtered.length === 0) {
+        var noMatch = document.createElement('div');
+        noMatch.className   = 'wt-option no-match';
+        noMatch.textContent = 'No work types match "' + query + '"';
+        dropdownEl.appendChild(noMatch);
+        return;
+      }
+
+      filtered.forEach(function(wt) {
+        var item = document.createElement('div');
+        item.className      = 'wt-option' + (wt.id === selectedWorktypeId ? ' selected' : '');
+        item.setAttribute('role', 'option');
+        item.dataset.id     = wt.id;
+        item.dataset.name   = wt.name;
+        item.innerHTML      = highlight(wt.name, query);
+
+        item.addEventListener('mousedown', function(e) {
+          e.preventDefault(); // prevent blur firing before click
+          selectWorktype(wt.id, wt.name);
+        });
+
+        dropdownEl.appendChild(item);
+      });
+    }
+
+    function openDropdown() {
+      renderDropdown(searchEl.value.trim());
+      dropdownEl.classList.add('open');
+    }
+
+    function closeDropdown() {
+      dropdownEl.classList.remove('open');
+    }
+
+    searchEl.addEventListener('focus', function() { openDropdown(); });
+    searchEl.addEventListener('blur',  function() { closeDropdown(); });
+    searchEl.addEventListener('input', function() {
+      // Clear selection if user edits after picking
+      if (selectedWorktypeId) {
+        selectedWorktypeId    = '';
+        hiddenEl.value        = '';
+        badgeEl.className     = 'wt-selected-badge';
+        clearForm();
+      }
+      renderDropdown(searchEl.value.trim());
+    });
+
+    // Keyboard: arrow navigation + enter
+    searchEl.addEventListener('keydown', function(e) {
+      var items = dropdownEl.querySelectorAll('.wt-option:not(.no-match)');
+      var current = dropdownEl.querySelector('.wt-option.focused');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!dropdownEl.classList.contains('open')) { openDropdown(); return; }
+        var next = current ? (current.nextElementSibling || items[0]) : items[0];
+        if (current) current.classList.remove('focused');
+        if (next) next.classList.add('focused');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        var prev = current ? (current.previousElementSibling || items[items.length - 1]) : items[items.length - 1];
+        if (current) current.classList.remove('focused');
+        if (prev) prev.classList.add('focused');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (current) { selectWorktype(current.dataset.id, current.dataset.name); }
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+      }
+    });
+
+    // Close dropdown if clicking outside
+    document.addEventListener('click', function(e) {
+      if (!document.getElementById('wtPicker').contains(e.target)) {
+        closeDropdown();
+      }
+    });
+  }
+
+  async function selectWorktype(id, name) {
+    const searchEl  = document.getElementById('wtSearch');
+    const badgeEl   = document.getElementById('wtBadge');
+    const hiddenEl  = document.getElementById('selectedWorktypeId');
+    const container = document.getElementById('attributesContainer');
+    const submitRow = document.getElementById('submitRow');
+
+    // Update UI state
+    selectedWorktypeId  = id;
+    hiddenEl.value      = id;
+    searchEl.value      = name;
+    badgeEl.textContent = '✓ ' + name;
+    badgeEl.className   = 'wt-selected-badge visible';
+    document.getElementById('wtDropdown').classList.remove('open');
+
+    clearForm();
+    container.innerHTML = '<div style="padding:10px 0; color:var(--muted)"><span class="spinner"></span> Loading attributes...</div>';
+
+    log('Selected work type: "' + name + '" id=' + id, 'info');
+
+    try {
+      var worktype = await fetchWorktypeById(id);
+      var schemaId = worktype.schema && worktype.schema.id;
+
+      if (!schemaId) {
+        log('No schema on this worktype — name field only.', 'warn');
+        container.innerHTML = '';
+        container.appendChild(buildRow('name', 'Workitem Name', 'text', true));
+        submitRow.style.display = 'block';
+        return;
+      }
+
+      var properties = await fetchSchema(schemaId);
+
+      if (!properties) {
+        container.innerHTML = '<p style="color:var(--error); font-size:0.85rem; padding:8px 0;">Schema returned no properties — check debug log.</p>';
+        return;
+      }
+
+      renderSchemaAttributes(properties);
+
+    } catch (err) {
+      container.innerHTML = '';
+      log('Error loading schema: ' + err.message, 'error');
+      showStatus('Failed to load schema: ' + err.message, 'error');
+    }
+  }
+
+  function clearForm() {
+    document.getElementById('attributesContainer').innerHTML = '';
+    document.getElementById('submitRow').style.display = 'none';
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     FORM RENDERING
+  ══════════════════════════════════════════════════════════════════ */
+  var INPUT_STYLE = 'width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.9rem;';
+  var ROW_STYLE   = 'display:grid; grid-template-columns:var(--label-col) 1fr; gap:0 16px; align-items:center; margin-bottom:14px;';
+  var LABEL_STYLE = 'font-weight:600; font-size:0.9rem;';
+
+  function makeLabel(forId, text) {
+    var l = document.createElement('label');
+    l.setAttribute('for', forId);
+    l.style.cssText = LABEL_STYLE;
+    l.textContent   = text;
+    return l;
+  }
+
+  function buildRow(id, labelText, type, required) {
+    var row = document.createElement('div');
+    row.style.cssText = ROW_STYLE;
+    row.appendChild(makeLabel(id, labelText));
+    var inp = document.createElement('input');
+    inp.type          = type || 'text';
+    inp.id            = id;
+    inp.name          = id;
+    inp.required      = required || false;
+    inp.style.cssText = INPUT_STYLE;
+    row.appendChild(inp);
+    return row;
+  }
+
+  function buildIntegerRow(id, attr) {
+    var row = document.createElement('div');
+    row.style.cssText = ROW_STYLE;
+    row.appendChild(makeLabel(id, attr.title || id));
+    var inp = document.createElement('input');
+    inp.type          = 'number';
+    inp.id            = id;
+    inp.name          = id;
+    inp.step          = '1';
+    inp.placeholder   = 'Enter a whole number';
+    inp.style.cssText = INPUT_STYLE;
+    row.appendChild(inp);
+    return row;
+  }
+
+  function buildNumberRow(id, attr) {
+    var row = document.createElement('div');
+    row.style.cssText = ROW_STYLE;
+    row.appendChild(makeLabel(id, attr.title || id));
+    var inp = document.createElement('input');
+    inp.type          = 'number';
+    inp.id            = id;
+    inp.name          = id;
+    inp.step          = 'any';
+    inp.placeholder   = 'Enter a number';
+    inp.style.cssText = INPUT_STYLE;
+    row.appendChild(inp);
+    return row;
+  }
+
+  function buildSelectRow(id, attr) {
+    var row = document.createElement('div');
+    row.style.cssText = ROW_STYLE;
+    row.appendChild(makeLabel(id, attr.title || id));
+    var sel = document.createElement('select');
+    sel.id            = id;
+    sel.name          = id;
+    sel.required      = true;
+    sel.style.cssText = INPUT_STYLE;
+    sel.innerHTML     = '<option value="">Select...</option>';
+    (attr.enum || []).forEach(function(v) {
+      var opt = document.createElement('option');
+      opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    row.appendChild(sel);
+    return row;
+  }
+
+  function buildCheckboxRow(id, attr) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:10px; margin-bottom:14px;';
+    var inp = document.createElement('input');
+    inp.type          = 'checkbox';
+    inp.id            = id;
+    inp.name          = id;
+    inp.style.cssText = 'width:18px; height:18px; cursor:pointer; flex-shrink:0;';
+    row.appendChild(inp);
+    row.appendChild(makeLabel(id, attr.title || id));
+    return row;
+  }
+
+  function renderSchemaAttributes(properties) {
+    var container = document.getElementById('attributesContainer');
+    container.innerHTML = '';
+
+    // Always first: the required Workitem Name
+    container.appendChild(buildRow('name', 'Workitem Name', 'text', true));
+
+    var keys = Object.keys(properties).filter(function(k) {
+      return !k.startsWith('z_routing');
+    });
+
+    log('Rendering ' + keys.length + ' field(s): ' + keys.join(', '), 'ok');
+
+    keys.forEach(function(key) {
+      var attr = properties[key];
+      if (key.endsWith('_enum')) {
+        container.appendChild(buildSelectRow(key, attr));
+      } else if (key.endsWith('_checkbox')) {
+        container.appendChild(buildCheckboxRow(key, attr));
+      } else if (key.endsWith('_datetime')) {
+        container.appendChild(buildRow(key, attr.title || key, 'datetime-local', false));
+      } else if (key.endsWith('_date')) {
+        container.appendChild(buildRow(key, attr.title || key, 'date', false));
+      } else if (key.endsWith('_integer')) {
+        container.appendChild(buildIntegerRow(key, attr));
+      } else if (key.endsWith('_number')) {
+        container.appendChild(buildNumberRow(key, attr));
+      } else {
+        container.appendChild(buildRow(key, attr.title || key, 'text', false));
+      }
+    });
+
+    if (keys.length === 0) {
+      var note = document.createElement('p');
+      note.style.cssText = 'color:var(--muted); font-size:0.85rem; margin-bottom:14px;';
+      note.textContent   = 'No custom attributes defined for this work type.';
+      container.appendChild(note);
+    }
+
+    document.getElementById('submitRow').style.display = 'block';
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     BULK WORKITEM CREATION
+  ══════════════════════════════════════════════════════════════════ */
+
+  /* Helper: sleep for N milliseconds */
+  function sleep(ms) {
+    return new Promise(function(resolve) { setTimeout(resolve, ms); });
+  }
+
+  /* Helper: collect form values into an object */
+  function collectFormData() {
+    var form = document.getElementById('workItemForm');
+    var formData = new FormData(form);
+    var attributes = {};
+    formData.forEach(function(value, key) { attributes[key] = value; });
+    return attributes;
+  }
+
+  /* Helper: disable all create buttons */
+  function disableAllButtons(disabled) {
+    ['createBtn1', 'createBtn3', 'createBtn5', 'createBtn10'].forEach(function(id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.disabled = disabled;
+    });
+  }
+
+  /* Main handler: create N workitems with suffixes */
+  async function handleBulkCreate(count, clickedBtn) {
+    var worktypeId = document.getElementById('selectedWorktypeId').value;
+    if (!worktypeId) {
+      showStatus('Please select a Work Type first.', 'error');
+      return;
+    }
+
+    var baseAttributes = collectFormData();
+    if (!baseAttributes.name || baseAttributes.name.trim() === '') {
+      showStatus('Workitem Name is required.', 'error');
+      return;
+    }
+
+    var baseName = baseAttributes.name.trim();
+    var createdIds = [];
+    var failedCount = 0;
+
+    disableAllButtons(true);
+    clickedBtn.innerHTML = '<span class="spinner"></span>Creating...';
+
+    log('Starting bulk creation: ' + count + ' workitem(s) with base name "' + baseName + '"', 'info');
+
+    for (var i = 1; i <= count; i++) {
+      var suffix = (i < 10) ? '0' + i : '' + i;
+      var itemName = baseName + ' ' + suffix;
+
+      var itemAttrs = Object.assign({}, baseAttributes);
+      itemAttrs.name = itemName;
+
+      // Update progress in status banner
+      showStatus('Creating workitem ' + i + ' of ' + count + ': ' + itemName + '...', 'info');
+
+      try {
+        log('[' + i + '/' + count + '] Creating: ' + itemName, 'info');
+        var result = await createWorkItem(worktypeId, itemAttrs);
+        createdIds.push({ id: result.id, name: result.name });
+        log('  ✓ Created: id=' + result.id, 'ok');
+
+        if (i < count) {
+          log('  Pausing 1 second...', 'info');
+          await sleep(1000);
+        }
+      } catch (err) {
+        failedCount++;
+        log('  ✗ Failed: ' + err.message, 'error');
+      }
+    }
+
+    disableAllButtons(false);
+    clickedBtn.innerHTML = clickedBtn.getAttribute('data-original-text');
+
+    if (failedCount === 0) {
+      showStatus('✓ Created ' + createdIds.length + ' workitem(s) successfully.', 'success');
+      log('Bulk creation complete: ' + createdIds.length + ' created, 0 failed.', 'ok');
+    } else {
+      showStatus('Created ' + createdIds.length + ' workitem(s); ' + failedCount + ' failed.', 'error');
+      log('Bulk creation complete: ' + createdIds.length + ' created, ' + failedCount + ' failed.', 'warn');
+    }
+
+    // Reset form but keep worktype picker
+    document.getElementById('workItemForm').reset();
+    clearForm();
+    selectedWorktypeId = '';
+    document.getElementById('selectedWorktypeId').value = '';
+    document.getElementById('wtSearch').value           = '';
+    document.getElementById('wtBadge').className        = 'wt-selected-badge';
+  }
+
+  /* Attach click handlers to all 4 buttons */
+  function initCreateButtons() {
+    ['createBtn1', 'createBtn3', 'createBtn5', 'createBtn10'].forEach(function(id) {
+      var btn = document.getElementById(id);
+      if (!btn) return;
+      btn.setAttribute('data-original-text', btn.textContent.trim());
+      btn.addEventListener('click', function() {
+        var count = parseInt(this.getAttribute('data-count'), 10);
+        handleBulkCreate(count, this);
+      });
+    });
+  }
+
+  // Initialize buttons after DOM loads (called at end of init())
+
+
+  /* ══════════════════════════════════════════════════════════════════
+     INIT
+  ══════════════════════════════════════════════════════════════════ */
+  async function init() {
+    log('App initialising...', 'info');
+    log('Redirect URI: ' + REDIRECT_URI, 'info');
+
+    var urlParams = new URLSearchParams(window.location.search);
+    var code      = urlParams.get('code');
+    var authError = urlParams.get('error');
+
+    if (authError) {
+      var desc = urlParams.get('error_description') || authError;
+      log('OAuth error: ' + desc, 'error');
+      showStatus('Authentication error: ' + desc, 'error');
+      document.getElementById('authMessage').textContent = 'Auth error: ' + desc;
+      return;
+    }
+
+    if (code) {
+      window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+      try {
+        accessToken = await exchangeCodeForToken(code);
+        sessionStorage.setItem('gc_access_token', accessToken);
+        showStatus('Authenticated.', 'success');
+      } catch (err) {
+        log('Token exchange error: ' + err.message, 'error');
+        showStatus('Authentication failed: ' + err.message, 'error');
+        document.getElementById('authMessage').textContent = 'Auth failed: ' + err.message;
+        return;
+      }
+    } else {
+      var cached = sessionStorage.getItem('gc_access_token');
+      if (cached) {
+        log('Reusing cached token.', 'info');
+        accessToken = cached;
+      } else {
+        log('No token — starting PKCE flow.', 'info');
+        document.getElementById('authMessage').textContent = 'Redirecting to Genesys login...';
+        await redirectToGenesysOAuth();
+        return;
+      }
+    }
+
+    document.getElementById('authCard').style.display = 'none';
+    document.getElementById('mainCard').style.display = 'block';
+    showStatus('Loading work types...', 'info');
+
+    try {
+      var workTypes = await fetchWorkTypes();
+      if (!workTypes.length) {
+        showStatus('No work types found. Check permissions.', 'error');
+        return;
+      }
+      initWorkTypePicker(workTypes);
+      initCreateButtons();
+      showStatus(workTypes.length + ' work type(s) loaded — search to select one.', 'info');
+    } catch (err) {
+      log('Failed to load work types: ' + err.message, 'error');
+      showStatus('Could not load work types: ' + err.message, 'error');
+      if (err.message.indexOf('401') !== -1) {
+        log('401 — clearing token and re-authenticating.', 'warn');
+        sessionStorage.removeItem('gc_access_token');
+        await redirectToGenesysOAuth();
+      }
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
 
